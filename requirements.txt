@@ -1,0 +1,10 @@
+# Python dependencies for QDock-Kaiwu (Python 3.10).
+# The Kaiwu SDK itself is installed separately from the vendored wheel:
+#   python -m pip install vendor/kaiwu-1.3.1-cp310-none-any.whl
+# (Kaiwu pins numpy==2.2.6 and pulls pandas/matplotlib/etc. automatically.)
+numpy==2.2.6
+scipy
+prody
+matplotlib
+jupyter
+ipykernel

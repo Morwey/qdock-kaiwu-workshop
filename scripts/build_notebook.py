@@ -141,8 +141,9 @@ code("posesf = f.dock(ligf)",
      "fig = viz.summary_figure(rf, f.last_energies, posesf[bf], ligf.coords, ligf.elements,",
      "                         suptitle='FAM 1y6r — sampled poses (red) vs crystal (blue)')",
      "plt.show()",
-     "print(f'\\nSame target:  GPM {r.min():.2f} Å @ {g.last_qubo.shape[0]} qubits  vs  '",
-     "      f'FAM {rf.min():.2f} Å @ {f.last_qubo.shape[0]} qubits ({len(f.feat_coords)} features)')")
+     "print('\\nSame target, each at its own default grid (not a like-for-like qubit count):')",
+     "print(f'  GPM @ 2.0 Å grid : {r.min():.2f} Å, {g.last_qubo.shape[0]} qubits')",
+     "print(f'  FAM @ 1.0 Å grid : {rf.min():.2f} Å, {f.last_qubo.shape[0]} qubits ({len(f.feat_coords)} features)')")
 
 # ---- Section 4 : grid resolution ----
 md("## 4. Grid resolution — each encoding on its own scale",

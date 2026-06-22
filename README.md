@@ -6,12 +6,15 @@ and its real Coherent Ising Machine. Two encodings from Zha *et al.*, *J. Chem.
 Theory Comput.* 2024 — Grid Point Matching and Feature Atom Matching — with
 poses scored by **AutoDock Vina**.
 
-Worked example — 1y6r (renin–inhibitor redocking), Kaiwu classical SA, seed 42:
+Worked example — 1y6r (renin–inhibitor redocking), Kaiwu classical SA, seed 42.
+Each encoding runs at **its own default grid** (GPM 2.0 Å, FAM 1.0 Å), so the
+qubit counts are *not* a like-for-like comparison — they measure each method at
+its recommended setting (see §1):
 
-| Encoding | Variables (qubits) | mRMSD vs crystal | < 2.0 Å | < 1.5 Å | Vina (best pose / crystal) |
-|---|---|---|---|---|---|
-| **GPM** | 1128 | **0.15 Å** | ✓ | ✓ | −11.35 / −11.80 kcal·mol⁻¹ |
-| **FAM** | 1620 | **1.46 Å** | ✓ | ✓ | — |
+| Encoding | Grid | Variables (qubits) | mRMSD vs crystal | < 2.0 Å | < 1.5 Å | Vina best / crystal |
+|---|---|---|---|---|---|---|
+| **GPM** | 2.0 Å | 1128 | **0.15 Å** | ✓ | ✓ | −11.35 / −11.80 kcal·mol⁻¹ |
+| **FAM** | 1.0 Å | 1620 | **1.46 Å** | ✓ | ✓ | — |
 
 ---
 
@@ -157,29 +160,56 @@ fixed `seed=42` and many reads.
 
 ## 3. Install
 
-The Kaiwu wheel is CPython-3.10 and pins `numpy==2.2.6`, so it lives in its own
-env; the chemistry CLIs (grids, prep, scoring) go in a second env.
+The Kaiwu wheel is **CPython 3.10** and pins `numpy==2.2.6`. The vendored wheel
+`vendor/kaiwu-1.3.1-cp310-none-any.whl` is the **macOS arm64** build; on other
+platforms drop in the matching Kaiwu wheel.
+
+### 3.1 Python environment — pick one
+
+**Option A — `venv` + pip** (Python 3.10 required):
 
 ```bash
-# env A: Kaiwu + Python
-conda create -y -n qdock python=3.10
-conda run -n qdock pip install /path/to/kaiwu-1.3.1-cp310-none-any.whl numpy==2.2.6 prody scipy jupyter
+python3.10 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install vendor/kaiwu-1.3.1-cp310-none-any.whl
+python -m ipykernel install --user --name qdock-kaiwu --display-name "qdock-kaiwu"
+```
 
-# env B: chemistry CLIs (no ADFR needed for GPM)
+**Option B — conda**:
+
+```bash
+conda create -y -n qdock python=3.10
+conda run -n qdock pip install -r requirements.txt
+conda run -n qdock pip install vendor/kaiwu-1.3.1-cp310-none-any.whl
+```
+
+### 3.2 Chemistry CLIs
+
+`autogrid4` (grids), `vina` (scoring) and `obabel` (prep) are **not** Python
+packages — install them from conda-forge (recommended) or your system:
+
+```bash
 conda create -y -n chem -c conda-forge python=3.11 autogrid vina openbabel
 ```
 
-Kaiwu license (free, <https://platform.qboson.com>): each participant uses their
-own `user_id` / `sdk_code`.
+QDock-Kaiwu finds them on `PATH` and in the `chem` env automatically; override
+any one with `QDOCK_AUTOGRID` / `QDOCK_VINA` / `QDOCK_OBABEL`. `autosite` (FAM's
+pocket finder) ships only with the ADFR suite; without it FAM uses the built-in
+`pocket_points` substitute.
+
+### 3.3 Kaiwu license
+
+Free, from <https://platform.qboson.com>; each participant uses their own
+credentials.
 
 ```bash
-export KAIWU_USER_ID=...      # qdock_kaiwu.init_license() reads these,
-export KAIWU_SDK_CODE=...      # or pass them to init_license(...)
+export KAIWU_USER_ID=...       # qdock_kaiwu.init_license() reads these,
+export KAIWU_SDK_CODE=...        # or pass them to init_license(user_id=..., sdk_code=...)
 ```
 
-`autosite` (FAM's pocket finder) ships only with the ADFR suite; without it FAM
-uses the built-in `pocket_points` substitute. macOS arm64: if a `.so` fails to
-load, run `xattr -dr com.apple.quarantine <kaiwu dir>` once.
+macOS arm64: if a Kaiwu `.so` fails to load, run
+`xattr -dr com.apple.quarantine <kaiwu install dir>` once.
 
 ---
 
