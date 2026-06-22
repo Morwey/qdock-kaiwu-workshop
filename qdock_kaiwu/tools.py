@@ -57,11 +57,17 @@ def run(cmd, cwd=None, check=True):
     return res
 
 
-def prepare_receptor_pdbqt(pdb_path, out_path):
-    """protein .pdb -> rigid receptor .pdbqt (AutoDock4 types + Gasteiger charges;
-    AutoGrid requires charges on the receptor)."""
-    run([require("obabel"), pdb_path, "-O", out_path, "-xr",
-         "--partialcharge", "gasteiger"])
+def prepare_receptor_pdbqt(rec_path, out_path):
+    """protein .pdb/.mol2 -> rigid receptor .pdbqt (AutoDock4 types + charges;
+    AutoGrid requires charges on the receptor).
+
+    A .mol2 receptor already carries partial charges, so we keep them: forcing
+    Gasteiger on a large (10^3-atom) SYBYL protein mol2 makes OpenBabel abort
+    ("0 molecules converted"). A .pdb has no charges, so we add Gasteiger."""
+    cmd = [require("obabel"), rec_path, "-O", out_path, "-xr"]
+    if not rec_path.lower().endswith(".mol2"):
+        cmd += ["--partialcharge", "gasteiger"]
+    run(cmd)
     return out_path
 
 

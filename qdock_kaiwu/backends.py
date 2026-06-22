@@ -96,12 +96,25 @@ def solve_sa(Q, n_pos=300, seed=42, initial_temperature=10.0, alpha=0.999,
 # Real Coherent Ising Machine (photonic hardware)
 # ---------------------------------------------------------------------------
 def solve_cim(Q, n_pos=10, task_name="qdock", task_mode="quota", wait=True,
-              interval=1, save_dir="/tmp/kaiwu_cim", **_):
+              interval=1, precision=8, truncated_precision=None, retries=4,
+              save_dir="/tmp/kaiwu_cim", **_):
     """Solve a QUBO on the real CIM with kaiwu.cim.CIMOptimizer: the Ising matrix
-    is submitted to the photonic machine and the result is polled back.
-    `sample_number = n_pos`. Suited to small QUBOs; a docking-scale QUBO
-    (10^3 spins) needs a correspondingly large hardware quota."""
+    is reduced to `precision` bits and submitted to the photonic machine, then the
+    result is polled back. `sample_number = n_pos`.
+
+    Precision is handled by kw.cim.PrecisionReducer with truncated_precision =
+    precision, i.e. the matrix is *truncated* straight to 8 bits. The default
+    truncated_precision (20) instead tries to PRESERVE precision by splitting one
+    variable into several spins ("扩增"), which on a wide-dynamic-range docking
+    matrix (K_mono >> vdW) is slow and pushes the spin count over the machine
+    budget. Truncating keeps the spin count fixed (<=1000 here). precision=None
+    submits the raw matrix.
+
+    Result download occasionally drops the TLS connection; we retry `retries`
+    times. The completed task is cached under save_dir, so a retry re-fetches it
+    rather than re-running on the hardware."""
     import os
+    import time
     import kaiwu as kw
     os.makedirs(save_dir, exist_ok=True)
     kw.common.CheckpointManager.save_dir = save_dir
@@ -110,10 +123,23 @@ def solve_cim(Q, n_pos=10, task_name="qdock", task_mode="quota", wait=True,
     if n == 0:
         return []
     ising, _ = kw.conversion.qubo_matrix_to_ising_matrix(Q)
-    optimizer = kw.cim.CIMOptimizer(task_name=task_name, wait=wait, interval=interval,
-                                    task_mode=task_mode, sample_number=max(10, n_pos))
-    spins = np.asarray(optimizer.solve(ising))
-    return _rank_unique([_spins_to_binary(s, n) for s in spins], Q)
+    last = None
+    for attempt in range(retries):
+        try:
+            optimizer = kw.cim.CIMOptimizer(task_name=task_name, wait=wait,
+                                            interval=interval, task_mode=task_mode,
+                                            sample_number=max(10, n_pos))
+            if precision:
+                optimizer = kw.cim.PrecisionReducer(
+                    optimizer, precision=precision,
+                    truncated_precision=truncated_precision or precision,
+                    only_feasible_solution=False)
+            spins = np.asarray(optimizer.solve(ising))
+            return _rank_unique([_spins_to_binary(s, n) for s in spins], Q)
+        except Exception as e:  # transient TLS/result-download failures
+            last = e
+            time.sleep(3 * (attempt + 1))
+    raise RuntimeError("CIM solve failed after %d retries: %r" % (retries, last))
 
 
 _BACKENDS = {"sa": solve_sa, "cim": solve_cim}

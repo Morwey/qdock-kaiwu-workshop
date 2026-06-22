@@ -1,281 +1,139 @@
-# QDock-Kaiwu
+# QDock-Kaiwu — docking on the Coherent Ising Machine
 
-Molecular-docking **pose sampling** encoded as a **QUBO** and solved on the
-**Kaiwu SDK** (开物, Bose Quantum): its classical simulated-annealing optimizer
-and its real Coherent Ising Machine. Two encodings from Zha *et al.*, *J. Chem.
-Theory Comput.* 2024 — Grid Point Matching and Feature Atom Matching — with
-poses scored by **AutoDock Vina**.
+Encode molecular-docking **pose sampling** as a **QUBO** and solve it on the
+**Kaiwu SDK** (开物, Bose Quantum) — the classical **Simulated Annealing** solver
+and the real **Coherent Ising Machine (CIM)** — then score the poses with
+**AutoDock Vina**. Two encodings from Zha *et al.* (*JCTC* 2024): **Grid Point
+Matching** and **Feature Atom Matching**.
 
-Worked example — 1y6r (renin–inhibitor redocking), Kaiwu classical SA, seed 42.
-Each encoding runs at **its own default grid** (GPM 2.0 Å, FAM 1.0 Å), so the
-qubit counts are *not* a like-for-like comparison — they measure each method at
-its recommended setting (see §1):
+The CIM is an **8-bit** machine, so a QUBO reaches it through a
+`kw.cim.PrecisionReducer` that quantizes the matrix; `truncated_precision = t`
+keeps `t` bits of each coefficient by splitting one variable across several spins.
+The workshop's headline result: **the CIM docks better as you spend more precision
+`t`** — shown on two redocking cases, each kept under the machine's ~1000-spin
+budget.
 
-| Encoding | Grid | Variables (qubits) | mRMSD vs crystal | < 2.0 Å | < 1.5 Å | Vina best / crystal |
-|---|---|---|---|---|---|---|
-| **GPM** | 2.0 Å | 1128 | **0.15 Å** | ✓ | ✓ | −11.35 / −11.80 kcal·mol⁻¹ |
-| **FAM** | 1.0 Å | 1620 | **1.46 Å** | ✓ | ✓ | — |
+| demo | encoding | target / ligand | variables | spins @ t8/t10/t12 | CIM best RMSD (t8 → t12) |
+|---|---|---|---|---|---|
+| **3f3d** | GPM (vdW grid) | fragment | 214 | 215 / 341 / 620 | 4.19 → 4.15 → **1.25 Å** |
+| **3d4z** | FAM (features) | mannosidase II + gluco-imidazole | 336 | 337 / 495 / 920 | 3.48 → **1.65** → 1.84 Å |
 
----
+## Method
 
-## 1. Pose sampling as a QUBO
-
-Docking splits into **pose sampling** (search the binding geometry — NP-hard) and
-**scoring** (rank poses — cheap). QDock casts sampling as a quadratic
-unconstrained binary optimization,
-
-```
-minimize  H(x) = Σ_v w_v x_v  +  Σ_{p<q} Q_pq x_p x_q ,     x ∈ {0,1},
-```
-
-the native problem of a quantum annealer / Coherent Ising Machine. One binary
-variable per candidate match:
+**Encoding.** One binary variable per candidate match, `x_(a,s) = 1` ⇔ *ligand
+atom `a` sits at site `s`*. The QUBO
 
 ```
-x_(a,s) = 1   ⇔   ligand atom a is placed at site point s.
+H(x) = Σ_v w_v x_v  +  K_dist Σ_{p<q} [‖d_lig − d_site‖ > c] x_p x_q  +  K_mono Σ_{p<q}[same atom] x_p x_q
 ```
 
-`H` has three parts:
+rewards a chemically good placement (`w`), penalizes matches that distort the
+rigid ligand (`K_dist`), and forbids one atom in two sites (`K_mono`). Minimizing
+`H` selects a consistent match set; superposing matched atoms onto their sites
+(Kabsch) gives a 3-D pose, and many low-energy solutions give many poses.
 
-| term | role | parameter |
-|---|---|---|
-| linear `w_v` | reward for placing atom *a* at site *s* | data (below) |
-| distance penalty | suppress matches that distort the rigid ligand: `|d(a,b) − d(s,t)| > c` | `edge_cutoff` = c, `K_dist` |
-| monogamy penalty | one atom occupies one site | `K_mono` |
+**Two encodings** differ only in the sites:
 
-Minimizing `H` selects a consistent set of matches; superposing the matched
-ligand atoms onto their sites (Kabsch) turns the selection into a 3-D pose.
-Sampling many low-energy solutions yields many candidate poses.
+- **GPM** — a grid filling the pocket (2.0 Å); reward `w` = van der Waals energy (AutoGrid).
+- **FAM** — a few typed pocket **feature atoms** (1.0 Å); reward `w = |EN(a) − EN(s)| − 0.5`,
+  so polar ligand atoms match polar features. Fewer qubits, and the docked pose
+  reads out directly as hydrogen bonds.
 
-### Two encodings
+**Solving.** Kaiwu minimizes an Ising Hamiltonian and returns ±1 spins. Convert
+with `kw.conversion.qubo_matrix_to_ising_matrix(Q)` and feed the result straight
+to `solve` — the converter bakes in the sign, so Kaiwu's maximizer minimizes the
+QUBO (no manual `-`). The CIM path wraps the solver in a `PrecisionReducer`.
 
-- **GPM — Grid Point Matching.** Sites are points of a grid filling the pocket
-  (default spacing **2.0 Å**); the reward `w` is the **van der Waals energy** at
-  that grid point, from **AutoGrid**. High resolution, many qubits, accurate.
-- **FAM — Feature Atom Matching.** Sites are a small, **fixed** set of **pocket
-  feature atoms** (default spacing **1.0 Å**, typed C / N-donor / O-acceptor); the
-  reward is the electronegativity mismatch `w = |EN(a) − EN(s)| − 0.5`. The qubit
-  count (atoms × features) stays bounded as the box or grid grows, so FAM scales
-  to large targets where GPM's grid explodes (paper: 3 640 vs 13 908 qubits on
-  the largest CASF case). For a small ligand in a coarse grid the two counts are
-  comparable (here GPM 1128, FAM 1620).
+## Installation
 
-Recommended parameters (`qdock_kaiwu/params.py`; multipliers fitted on the Astex
-Diversity Set in the paper):
-
-| | grid (default → fine) | `edge_cutoff` | `K_dist` | `K_mono` |
-|---|---|---|---|---|
-| GPM | 2.0 → 1.5 Å | 2.162 | 0.405 | 25.090 |
-| FAM | 1.0 → 0.5 Å | 1.870 | 2.261 | 11.479 |
-
-Each encoding is refined on its own scale for the resolution study (§5): GPM
-2.0→1.5, FAM 1.0→0.5 — never on a common grid, since their defaults differ by 2×.
-
----
-
-## 2. Solving the QUBO on Kaiwu
-
-Kaiwu minimizes an **Ising** Hamiltonian and returns **spin** (±1) solutions. We
-convert with Kaiwu's own routine and map the ancilla-gauged spins back to binary:
-
-```python
-ising, offset = kw.conversion.qubo_matrix_to_ising_matrix(Q)
-spins         = optimizer.solve(ising)          # ±1, shape (reads, n+1)
-x_i           = (1 + s_i * s_ancilla) // 2      # last spin is the ancilla gauge
-```
-
-The mapping is exact — `kw.common.hamiltonian(ising, s) + offset == xᵀQx` for the
-mapped binary, for every spin configuration (verified in `tests/test_core.py`).
-
-**Sign convention.** Kaiwu's *raw* `optimizer.solve(M)` **maximizes** `sᵀMs` (so
-Kaiwu's own MaxCut example feeds `-adjacency`). We never use the raw path: we
-always go `qubo_matrix_to_ising_matrix(Q)` → `solve`, and that converter already
-encodes the sign, so the maximizer **minimizes the QUBO**. Do **not** add a manual
-`-` — `tests/test_core.py` asserts the pipeline returns the QUBO minimum.
-
-### How to call the **SA** simulated-annealing optimizer
-
-```python
-import kaiwu as kw
-kw.license.init(user_id="...", sdk_code="...")          # once per environment
-
-ising, _ = kw.conversion.qubo_matrix_to_ising_matrix(Q)
-sa = kw.classical.SimulatedAnnealingOptimizer(
-        initial_temperature=10.0,    # matched to the QUBO energy scale (see below)
-        alpha=0.999,                 # cooling factor
-        cutoff_temperature=0.01,
-        iterations_per_t=2000,
-        size_limit=300,              # number of reads
-        rand_seed=42)
-spins = sa.solve(ising)              # (<=300, n+1) spin solutions
-```
-
-In this package that is `backend="sa"` (the default): `GPMDock(backend="sa")`,
-or `qdock_kaiwu.solve_qubo(Q, backend="sa")`.
-
-### How to call the **CIM** real machine
-
-```python
-import kaiwu as kw
-kw.license.init(user_id="...", sdk_code="...")
-kw.common.CheckpointManager.save_dir = "/tmp/kaiwu_cim"   # cache submitted tasks
-
-ising, _ = kw.conversion.qubo_matrix_to_ising_matrix(Q)
-cim = kw.cim.CIMOptimizer(task_name="qdock_demo",
-                          wait=True,            # block until the machine returns
-                          interval=1,           # poll every minute
-                          task_mode="quota",
-                          sample_number=10)     # number of samples
-spins = cim.solve(ising)            # submitted to the photonic CIM, polled back
-```
-
-In this package that is `backend="cim"`: `GPMDock(backend="cim")`, or
-`qdock_kaiwu.solve_qubo(Q, backend="cim", task_name="...")`. The CIM is a real
-machine — a submission takes ~1 minute and consumes quota; it suits small QUBOs
-(the docking-as-QUBO demo in the notebook). A full docking QUBO has ~10³ spins
-and needs a correspondingly large hardware quota.
-
-### Setting the SA initial temperature
-
-The SA optimizer exposes the full schedule, so set the **initial temperature to
-the QUBO's energy scale**. For these docking QUBOs that scale is small
-(T₀ ≈ 10), set by the rewards and the K_dist terms — not by K_mono. At T₀ = 100
-the optimizer accepts a monogamy-violating move (ΔE ≈ K_mono = 25) with
-probability `exp(−25/100) = 0.78`, i.e. it ignores the constraints and
-random-walks; at T₀ ≈ 10 (with slow cooling, α = 0.999) the search stays in the
-feasible region. Measured on GPM 1y6r:
-
-| T₀ | best E | mRMSD |
-|---|---|---|
-| 100 | −14.1 | 2.9 Å |
-| **10** | **−16.5** | **0.15 Å** |
-
-So a higher T₀ helps only with a cooling schedule slow enough to spend the budget
-in the productive temperature window; with a fixed budget, an over-high T₀ wastes
-it on a high-temperature random walk. The per-encoding T₀ is in `params.py`. The
-dense docking QUBO has high read-to-read variance, so the worked numbers use a
-fixed `seed=42` and many reads.
-
----
-
-## 3. Install
-
-The Kaiwu wheel is **CPython 3.10** and pins `numpy==2.2.6`. The vendored wheel
-`vendor/kaiwu-1.3.1-cp310-none-any.whl` is the **macOS arm64** build; on other
-platforms drop in the matching Kaiwu wheel.
-
-### 3.1 Python environment — pick one
-
-**Option A — `venv` + pip** (Python 3.10 required):
+Python 3.10 (required by the Kaiwu wheel).
 
 ```bash
-python3.10 -m venv .venv
-source .venv/bin/activate
+python3.10 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
 python -m pip install vendor/kaiwu-1.3.1-cp310-none-any.whl
 python -m ipykernel install --user --name qdock-kaiwu --display-name "qdock-kaiwu"
 ```
 
-**Option B — conda**:
-
-```bash
-conda create -y -n qdock python=3.10
-conda run -n qdock pip install -r requirements.txt
-conda run -n qdock pip install vendor/kaiwu-1.3.1-cp310-none-any.whl
-```
-
-### 3.2 Chemistry CLIs
-
-`autogrid4` (grids), `vina` (scoring) and `obabel` (prep) are **not** Python
-packages — install them from conda-forge (recommended) or your system:
+`autogrid4`, `vina` and `obabel` are command-line tools, not Python packages —
+install from conda-forge (found automatically on `PATH` or in a `chem` env):
 
 ```bash
 conda create -y -n chem -c conda-forge python=3.11 autogrid vina openbabel
 ```
 
-QDock-Kaiwu finds them on `PATH` and in the `chem` env automatically; override
-any one with `QDOCK_AUTOGRID` / `QDOCK_VINA` / `QDOCK_OBABEL`. `autosite` (FAM's
-pocket finder) ships only with the ADFR suite; without it FAM uses the built-in
-`pocket_points` substitute.
-
-### 3.3 Kaiwu license
-
-Free, from <https://platform.qboson.com>; each participant uses their own
-credentials.
+**License.** Free from [platform.qboson.com](https://platform.qboson.com); export
+your own before running:
 
 ```bash
-export KAIWU_USER_ID=...       # qdock_kaiwu.init_license() reads these,
-export KAIWU_SDK_CODE=...        # or pass them to init_license(user_id=..., sdk_code=...)
+export KAIWU_USER_ID=<numeric id>
+export KAIWU_SDK_CODE=<sdk code>
 ```
 
-macOS arm64: if a Kaiwu `.so` fails to load, run
-`xattr -dr com.apple.quarantine <kaiwu install dir>` once.
+## Using it
 
----
-
-## 4. Run
+The whole pipeline — build the QUBO, quantize to 8 bits, solve on the CIM, decode
+to a pose:
 
 ```python
-import os
-os.environ["PATH"] = os.path.expanduser("~/miniforge3/envs/chem/bin") + ":" + os.environ["PATH"]
-from qdock_kaiwu import GPMDock, evaluate, init_license
+import os, numpy as np, kaiwu as kw
+from qdock_kaiwu import GPMDock, backends, evaluate
+from qdock_kaiwu.qubo import build_gpm_qubo
+from qdock_kaiwu.gpm import _matches_to_poses
+from qdock_kaiwu.params import GPM as P
 
-init_license(user_id="...", sdk_code="...")          # or set the env vars
-g = GPMDock(backend="sa", workdir="run_1y6r")         # backend="cim" for the machine
-g.make_receptor("data/1y6r_protein.pdb")
-g.make_ligand(["data/1y6r_ligand.mol2"])
-g.make_box_ligand("data/1y6r_ligand.mol2")           # grid 2.0 Å (GPM default)
+kw.license.init(user_id=os.environ["KAIWU_USER_ID"], sdk_code=os.environ["KAIWU_SDK_CODE"])
+kw.common.CheckpointManager.save_dir = "cim_cache"     # reuse the shipped CIM runs
+
+g = GPMDock(backend="cim", workdir="run")
+g.make_receptor("data/3f3d_protein.mol2")
+g.make_ligand(["data/3f3d_ligand.mol2"])
+g.make_box_ligand("data/3f3d_ligand.mol2")             # 2.0 Å grid
 lig = g.ligands[0]
-poses = g.dock(lig)                                  # (n_poses, n_atoms, 3)
-print("mRMSD:", evaluate.mrmsd(poses, lig.coords, lig.elements), "Å")
+Q, variables = build_gpm_qubo(lig.coords, lig.ad_types, g.grid_dict, g.box_coords,
+                              P["edge_cutoff"], P["K_dist"], P["K_mono"])
+
+ising, _ = kw.conversion.qubo_matrix_to_ising_matrix(Q)                 # QUBO → Ising
+cim = kw.cim.CIMOptimizer(task_name="qdock_3f3d_GPM_2p0_p8t12", wait=True,
+                          interval=1, task_mode="quota", sample_number=300)
+reducer = kw.cim.PrecisionReducer(cim, precision=8, truncated_precision=12,
+                                  only_feasible_solution=False)         # 8-bit machine
+spins = np.asarray(reducer.solve(ising))                               # quantize → submit → decode
+ranked = backends._rank_unique([backends._spins_to_binary(s, Q.shape[0]) for s in spins], Q)
+poses, _ = _matches_to_poses(lig, np.array(variables), g.box_coords, ranked)
+print("best RMSD:", round(evaluate.pose_rmsds(np.array(poses), lig.coords, lig.elements).min(), 2), "Å")
 ```
 
-- `notebooks/qdock_kaiwu_workshop.ipynb` — the guided session (QUBO → Kaiwu SA &
-  CIM on a small instance → GPM/FAM redock + Vina → grid resolution).
-- `scripts/benchmark.py` — redocks 1y6r at both resolutions (`QDOCK_BACKEND=sa`).
-- `tests/test_core.py` — license-free correctness checks.
+Swap `kw.cim.CIMOptimizer` for `kw.classical.SimulatedAnnealingOptimizer(...,
+size_limit=300)` to solve on the CPU instead — that is `backend="sa"`.
 
----
+## Run
 
-## 5. Grid resolution
-
-A ligand atom cannot match closer than the nearest site, so grid spacing sets a
-floor on accuracy — the *discretization error*, which the paper ties to mRMSD
-(R² ≈ 0.93). Refining the grid lowers this floor at the cost of more qubits. See
-`BENCHMARK.md` for the measured GPM 2.0→1.5 Å and FAM 1.0→0.5 Å numbers: the
-discretization error drops monotonically, while realizing it in mRMSD needs a
-solver budget that keeps pace with the larger QUBO.
-
----
-
-## 6. Comparison with classical docking
-
-Published sampling power (CASF-2016, 257 redocking cases, 30 poses, success =
-mRMSD < 2 Å):
-
-| method | success @ 2 Å | avg. mRMSD |
-|---|---|---|
-| Glide SP (classical reference) | 93.4 % | 1.0 Å |
-| **GPM** | 87.5 % | 1.1 Å |
-| **FAM** | 67.3 % | 1.8 Å |
-
-The Vina scores in this repo are an independent scoring yardstick on QDock's
-sampled poses.
-
----
-
-## 7. Layout
-
-```
-qdock_kaiwu/   params · qubo · backends · gpm · fam · geometry · io · scoring · evaluate · tools
-notebooks/     qdock_kaiwu_workshop.ipynb
-scripts/       benchmark.py
-tests/         test_core.py
-data/          1y6r_protein.pdb · 1y6r_ligand.mol2
+```bash
+jupyter lab        # notebooks/qdock_kaiwu_workshop.ipynb, kernel "qdock-kaiwu"
+python run_demo.py # both precision sweeps on the CIM, end to end
 ```
 
-## 8. References
+The notebook is the guided session: a QUBO on SA and the CIM → the GPM 3f3d
+precision sweep → the FAM 3d4z sweep read out as hydrogen bonds. The CIM runs are
+cached under `cim_cache/`, so it reproduces the numbers above instantly; delete a
+cache file (or change `task_name`) to submit a fresh job to the hardware.
 
-Zha J. *et al.* "Encoding Molecular Docking for Quantum Computers."
-*J. Chem. Theory Comput.* 2024. DOI: 10.1021/acs.jctc.3c00943.
-Kaiwu SDK © QBoson. AutoGrid, AutoDock Vina, OpenBabel under their own licenses.
+## Repository layout
+
+```
+notebooks/qdock_kaiwu_workshop.ipynb   the guided session (pre-run)
+qdock_kaiwu/                            params · qubo · backends · gpm · fam · scoring · evaluate · viz · tools
+run_demo.py                            CLI: the two precision-sweep demos
+instructor_notes.md                    lecture outline
+data/                                  3f3d (GPM) and 3d4z (FAM) structures
+cim_cache/                             shipped CIM results for exact reproduction
+vendor/kaiwu-1.3.1-cp310-none-any.whl  the Kaiwu SDK (macOS arm64; swap wheel on other platforms)
+tests/test_core.py                     license-free correctness checks
+```
+
+## References
+
+Zha J. *et al.* "Encoding Molecular Docking for Quantum Computers." *JCTC* 2024.
+DOI: 10.1021/acs.jctc.3c00943. Kaiwu SDK © QBoson; AutoGrid, AutoDock Vina,
+OpenBabel under their own licenses.
