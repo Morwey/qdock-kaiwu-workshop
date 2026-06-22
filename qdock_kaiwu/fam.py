@@ -122,7 +122,9 @@ class FAMDock:
         params.update(solver_params or {})
         ranked = backends.solve_qubo(Q, n_pos=n_pos, backend=self.backend,
                                      seed=seed, **params)
-        poses = _matches_to_poses(ligand, np.array(variables), self.feat_coords, ranked)
+        poses, energies = _matches_to_poses(ligand, np.array(variables),
+                                            self.feat_coords, ranked)
+        self.last_energies = np.array(energies)
         if save_pose and poses:
             posedir = os.path.join(self.workdir, "poses")
             os.makedirs(posedir, exist_ok=True)

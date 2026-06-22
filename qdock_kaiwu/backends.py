@@ -13,6 +13,13 @@ the ancilla-gauged spins back to binary:
 The mapping is exact: kw.common.hamiltonian(ising, s) + offset == x^T Q x for the
 mapped binary, for every spin configuration (checked in tests/test_core.py).
 
+Sign convention -- IMPORTANT. Kaiwu's raw `optimizer.solve(M)` *maximizes* s^T M s
+(this is why Kaiwu's own MaxCut example feeds `-adjacency`). We never touch that
+raw path: we always go QUBO matrix -> `kw.conversion.qubo_matrix_to_ising_matrix`
+-> `solve`. That converter already bakes the sign in, so feeding its output to the
+maximizer *minimizes* the QUBO. Do NOT add a manual `-` -- negating here would
+return the QUBO maximum. (tests/test_core.py asserts the pipeline returns the MIN.)
+
 Two backends, one interface (`solve_qubo`):
 
     backend="sa"    kaiwu.classical.SimulatedAnnealingOptimizer   (CPU annealer)

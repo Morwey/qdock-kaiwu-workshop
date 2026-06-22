@@ -63,5 +63,29 @@ fa_ok = all(abs(faQ[k, k] - (abs(QB.EN[ad[i]] - QB.EN[["C", "O", "N", "C"][j]]) 
             for k, (i, j) in enumerate(favars))
 check("FAM diagonal == |EN diff| - 0.5", fa_ok)
 
+# Sign convention: the pipeline must return the QUBO MINIMUM, not the maximum
+# (Kaiwu's raw solve maximizes sᵀMs; qubo_matrix_to_ising_matrix bakes in the
+# sign, so we must NOT negate). Needs a license; skipped otherwise.
+if os.environ.get("KAIWU_USER_ID") and os.environ.get("KAIWU_SDK_CODE"):
+    import kaiwu as kw
+    from qdock_kaiwu import solve_qubo, init_license
+    init_license()
+    r = np.random.default_rng(1)
+    n = 6
+    Qs = np.zeros((n, n))
+    for i in range(n):
+        Qs[i, i] = r.integers(-5, 6)
+        for j in range(i + 1, n):
+            if r.random() < 0.7:
+                Qs[i, j] = r.integers(-5, 6)
+    allb = list(itertools.product([0, 1], repeat=n))
+    bmin = min(qubo_energy(Qs, np.array(b)) for b in allb)
+    bmax = max(qubo_energy(Qs, np.array(b)) for b in allb)
+    got = solve_qubo(Qs, n_pos=50, backend="sa")[0][0]
+    check("Kaiwu SA pipeline returns the QUBO MINIMUM (not maximum)",
+          abs(got - bmin) < 1e-9 and abs(got - bmax) > 1e-9)
+else:
+    print("SKIP sign-convention solve test (no KAIWU_USER_ID / KAIWU_SDK_CODE)")
+
 print("\nALL CORE TESTS PASSED" if ok else "\nSOME TESTS FAILED")
 sys.exit(0 if ok else 1)

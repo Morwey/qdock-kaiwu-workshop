@@ -100,7 +100,9 @@ class GPMDock:
         params.update(solver_params or {})
         ranked = backends.solve_qubo(Q, n_pos=n_pos, backend=self.backend,
                                      seed=seed, **params)
-        poses = _matches_to_poses(ligand, np.array(variables), self.box_coords, ranked)
+        poses, energies = _matches_to_poses(ligand, np.array(variables),
+                                            self.box_coords, ranked)
+        self.last_energies = np.array(energies)
         if save_pose and poses:
             posedir = os.path.join(self.workdir, "poses")
             os.makedirs(posedir, exist_ok=True)
@@ -117,11 +119,13 @@ class GPMDock:
 
 
 def _matches_to_poses(ligand, variables, sites, ranked):
-    poses = []
-    for _, b in ranked:
+    """Turn each QUBO solution into a pose; return (poses, energies) aligned."""
+    poses, energies = [], []
+    for energy, b in ranked:
         on = np.where(b == 1)[0]
-        if len(on) < 3:
+        if len(on) < 3:                     # need >=3 matches to fit a rigid body
             continue
         poses.append(superpose_apply(ligand.coords[variables[on, 0]],
-                                         sites[variables[on, 1]], ligand.coords))
-    return poses
+                                     sites[variables[on, 1]], ligand.coords))
+        energies.append(energy)
+    return poses, energies

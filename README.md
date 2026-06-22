@@ -49,9 +49,13 @@ Sampling many low-energy solutions yields many candidate poses.
 - **GPM — Grid Point Matching.** Sites are points of a grid filling the pocket
   (default spacing **2.0 Å**); the reward `w` is the **van der Waals energy** at
   that grid point, from **AutoGrid**. High resolution, many qubits, accurate.
-- **FAM — Feature Atom Matching.** Sites are a few **pocket feature atoms**
-  (default spacing **1.0 Å**, typed C / N-donor / O-acceptor); the reward is the
-  electronegativity mismatch `w = |EN(a) − EN(s)| − 0.5`. Few qubits, cheaper.
+- **FAM — Feature Atom Matching.** Sites are a small, **fixed** set of **pocket
+  feature atoms** (default spacing **1.0 Å**, typed C / N-donor / O-acceptor); the
+  reward is the electronegativity mismatch `w = |EN(a) − EN(s)| − 0.5`. The qubit
+  count (atoms × features) stays bounded as the box or grid grows, so FAM scales
+  to large targets where GPM's grid explodes (paper: 3 640 vs 13 908 qubits on
+  the largest CASF case). For a small ligand in a coarse grid the two counts are
+  comparable (here GPM 1128, FAM 1620).
 
 Recommended parameters (`qdock_kaiwu/params.py`; multipliers fitted on the Astex
 Diversity Set in the paper):
@@ -79,6 +83,12 @@ x_i           = (1 + s_i * s_ancilla) // 2      # last spin is the ancilla gauge
 
 The mapping is exact — `kw.common.hamiltonian(ising, s) + offset == xᵀQx` for the
 mapped binary, for every spin configuration (verified in `tests/test_core.py`).
+
+**Sign convention.** Kaiwu's *raw* `optimizer.solve(M)` **maximizes** `sᵀMs` (so
+Kaiwu's own MaxCut example feeds `-adjacency`). We never use the raw path: we
+always go `qubo_matrix_to_ising_matrix(Q)` → `solve`, and that converter already
+encodes the sign, so the maximizer **minimizes the QUBO**. Do **not** add a manual
+`-` — `tests/test_core.py` asserts the pipeline returns the QUBO minimum.
 
 ### How to call the **SA** simulated-annealing optimizer
 
