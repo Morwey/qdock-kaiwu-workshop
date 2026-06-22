@@ -18,6 +18,8 @@ budget.
 | **3f3d** | GPM (vdW grid) | fragment | 214 | 215 / 341 / 620 | 4.19 → 4.15 → **1.25 Å** |
 | **3d4z** | FAM (features) | mannosidase II + gluco-imidazole | 336 | 337 / 495 / 920 | 3.48 → **1.65** → 1.84 Å |
 
+![CIM-docked pose (colored sticks) vs crystal (blue dashed)](assets/docking_demo.png)
+
 ## Method
 
 **Encoding.** One binary variable per candidate match, `x_(a,s) = 1` ⇔ *ligand
@@ -119,15 +121,22 @@ precision sweep → the FAM 3d4z sweep read out as hydrogen bonds. The CIM runs 
 cached under `cim_cache/`, so it reproduces the numbers above instantly; delete a
 cache file (or change `task_name`) to submit a fresh job to the hardware.
 
+**Colab.** `notebooks/qdock_kaiwu_colab.ipynb` reproduces the poses, RMSDs,
+hydrogen bonds and the 3D figure from the shipped results with only NumPy +
+Matplotlib — no SDK needed (the Kaiwu wheel is macOS/Windows, so the solve runs
+in the local notebook).
+
 ## Repository layout
 
 ```
 notebooks/qdock_kaiwu_workshop.ipynb   the guided session (pre-run)
+notebooks/qdock_kaiwu_colab.ipynb      Colab companion (NumPy + Matplotlib only)
 qdock_kaiwu/                            params · qubo · backends · gpm · fam · scoring · evaluate · viz · tools
 run_demo.py                            CLI: the two precision-sweep demos
 instructor_notes.md                    lecture outline
-data/                                  3f3d (GPM) and 3d4z (FAM) structures
+data/                                  3f3d / 3d4z structures + demo_poses.npz
 cim_cache/                             shipped CIM results for exact reproduction
+assets/docking_demo.png                docked-vs-crystal 3D overlay
 vendor/kaiwu-1.3.1-cp310-none-any.whl  the Kaiwu SDK (macOS arm64; swap wheel on other platforms)
 tests/test_core.py                     license-free correctness checks
 ```
