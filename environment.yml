@@ -1,0 +1,13 @@
+# Two conda environments.
+#   qdock : Python 3.10 + Kaiwu SDK + NumPy/SciPy/ProDy   (solver & maths)
+#   chem  : AutoGrid + AutoDock Vina + OpenBabel           (chemistry CLIs)
+#
+#   conda create -y -n qdock python=3.10
+#   conda run -n qdock pip install /path/to/kaiwu-1.3.1-cp310-none-any.whl numpy==2.2.6 prody scipy jupyter
+#   conda create -y -n chem -c conda-forge python=3.11 autogrid vina openbabel
+name: qdock
+channels: [conda-forge]
+dependencies:
+  - python=3.10
+  - pip
+  - pip: [numpy==2.2.6, scipy, prody, jupyter]
