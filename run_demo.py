@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Run the two workshop demos on the CIM, end to end: build the QUBO, sweep
-truncated_precision 8/10/12 through a PrecisionReducer, decode, Vina-rescore, and
-print the best RMSD at each precision. Reuses the cached CIM runs in cim_cache/.
+"""Run the two workshop demos on the CIM: build the QUBO, solve it through an
+8-bit PrecisionReducer, and pool five runs (the CIM is sampling-limited, so any
+one run lands anywhere in the spread). Reuses the cached runs in cim_cache/.
 
     export KAIWU_USER_ID=... KAIWU_SDK_CODE=...
     python run_demo.py            # both demos
@@ -21,7 +21,7 @@ init_license()
 kw.common.CheckpointManager.save_dir = os.path.join(HERE, "cim_cache")
 
 
-def cim_dock(Q, task_name, t, samples=300):
+def cim_dock(Q, task_name, t=12, samples=300):
     ising, _ = kw.conversion.qubo_matrix_to_ising_matrix(Q)
     cim = kw.cim.CIMOptimizer(task_name=task_name, wait=True, interval=1,
                               task_mode="quota", sample_number=samples)
@@ -31,16 +31,18 @@ def cim_dock(Q, task_name, t, samples=300):
     return backends._rank_unique([backends._spins_to_binary(s, Q.shape[0]) for s in spins], Q)
 
 
-def sweep(name, d, lig, Q, variables, sites, task):
-    print("\n=== %s precision sweep (CIM) — %d variables ===" % (name, Q.shape[0]))
-    for t in (8, 10, 12):
-        ranked = cim_dock(Q, task % t, t)
-        poses, _ = _matches_to_poses(lig, np.array(variables), sites, ranked)
-        P = np.array(poses)
+def pool(name, d, lig, Q, variables, sites, tasks):
+    per_run, best = [], 9.9
+    for task in tasks:
+        ranked = cim_dock(Q, task)
+        P = np.array(_matches_to_poses(lig, np.array(variables), sites, ranked)[0])
         rmsd = evaluate.pose_rmsds(P, lig.coords, lig.elements)
         vina = scoring.score_poses(d.receptor_pdbqt, lig.lines, P, d.workdir + "/score")
-        bi = int(np.nanargmin(vina))
-        print("  t=%2d  poses=%d  mRMSD=%.2f  vina-best RMSD=%.2f A" % (t, len(P), rmsd.min(), rmsd[bi]))
+        per_run.append(round(float(rmsd[int(np.nanargmin(vina))]), 2))
+        best = min(best, float(rmsd.min()))
+    print("\n%s — %d variables" % (name, Q.shape[0]))
+    print("  per-run best RMSD:", per_run)
+    print("  pooled best: %.2f A" % best)
 
 
 def gpm():
@@ -50,7 +52,8 @@ def gpm():
     lig = d.ligands[0]
     Q, v = build_gpm_qubo(lig.coords, lig.ad_types, d.grid_dict, d.box_coords,
                           GPM_P["edge_cutoff"], GPM_P["K_dist"], GPM_P["K_mono"])
-    sweep("GPM 3f3d", d, lig, Q, v, d.box_coords, "qdock_3f3d_GPM_2p0_p8t%d")
+    tasks = ["qdock_3f3d_GPM_2p0_p8t12"] + [f"repro3_3f3d_GPM_t12_r{i}" for i in range(4)]
+    pool("GPM 3f3d", d, lig, np.asarray(Q, float), v, d.box_coords, tasks)
 
 
 def fam():
@@ -60,7 +63,8 @@ def fam():
     lig = d.ligands[0]
     Q, v = build_fam_qubo(lig.coords, lig.ad_types, d.feat_coords, d.feat_elements,
                           FAM_P["edge_cutoff"], FAM_P["K_dist"], FAM_P["K_mono"])
-    sweep("FAM 3d4z", d, lig, Q, v, d.feat_coords, "qdock_3d4z_FAM_1p0_p8t%d")
+    tasks = ["qdock_3d4z_FAM_1p0_p8t12"] + [f"repro3_3d4z_FAM_t12_r{i}" for i in range(4)]
+    pool("FAM 3d4z", d, lig, np.asarray(Q, float), v, d.feat_coords, tasks)
 
 
 if __name__ == "__main__":

@@ -7,16 +7,17 @@ and the real **Coherent Ising Machine (CIM)** — then score the poses with
 Matching** and **Feature Atom Matching**.
 
 The CIM is an **8-bit** machine, so a QUBO reaches it through a
-`kw.cim.PrecisionReducer` that quantizes the matrix; `truncated_precision = t`
-keeps `t` bits of each coefficient by splitting one variable across several spins.
-The workshop's headline result: **the CIM docks better as you spend more precision
-`t`** — shown on two redocking cases, each kept under the machine's ~1000-spin
-budget.
+`kw.cim.PrecisionReducer` that quantizes the matrix (`truncated_precision=12`
+splits a variable across spins to keep 12 bits). It returns only ~6–10 poses per
+run and is **high-variance** on these dense QUBOs — the native pose appears in
+roughly **one run in five**. So the recipe is to **pool a few runs**: the native
+pose then reliably surfaces. Two small redocking cases, each under the ~1000-spin
+budget:
 
-| demo | encoding | target / ligand | variables | spins @ t8/t10/t12 | CIM best RMSD (t8 → t12) |
+| demo | encoding | target / ligand | variables | best of 5 CIM runs | per-run RMSD spread |
 |---|---|---|---|---|---|
-| **3f3d** | GPM (vdW grid) | fragment | 214 | 215 / 341 / 620 | 4.19 → 4.15 → **1.25 Å** |
-| **3d4z** | FAM (features) | mannosidase II + gluco-imidazole | 336 | 337 / 495 / 920 | 3.48 → **1.65** → 1.84 Å |
+| **3f3d** | GPM (vdW grid) | fragment | 214 | **1.25 Å** | 1.25 – 4.95 Å |
+| **3d4z** | FAM (features) | mannosidase II + gluco-imidazole | 336 | **1.84 Å** (5 H-bonds) | 1.84 – 4.57 Å |
 
 ![CIM-docked pose (colored sticks) vs crystal (blue dashed)](assets/docking_demo.png)
 
@@ -113,13 +114,14 @@ size_limit=300)` to solve on the CPU instead — that is `backend="sa"`.
 
 ```bash
 jupyter lab        # notebooks/qdock_kaiwu_workshop.ipynb, kernel "qdock-kaiwu"
-python run_demo.py # both precision sweeps on the CIM, end to end
+python run_demo.py # pool 5 CIM runs per demo, end to end
 ```
 
-The notebook is the guided session: a QUBO on SA and the CIM → the GPM 3f3d
-precision sweep → the FAM 3d4z sweep read out as hydrogen bonds. The CIM runs are
-cached under `cim_cache/`, so it reproduces the numbers above instantly; delete a
-cache file (or change `task_name`) to submit a fresh job to the hardware.
+The notebook is the guided session: a QUBO on SA and the CIM → the GPM 3f3d run
+pool → the FAM 3d4z pool read out as hydrogen bonds. Five CIM runs per demo are
+cached under `cim_cache/`, so it reproduces the per-run spread and pooled-best
+numbers above instantly; change a `task_name` to submit a fresh job to the
+hardware (expect a single run anywhere in the spread).
 
 **Colab.** `notebooks/qdock_kaiwu_colab.ipynb` reproduces the poses, RMSDs,
 hydrogen bonds and the 3D figure from the shipped results with only NumPy +

@@ -22,15 +22,18 @@ def _s(lines):
 md("# QDock-Kaiwu on Colab",
    "",
    "Docking pose sampling encoded as a QUBO and solved on the **Kaiwu Coherent Ising",
-   "Machine**. This Colab reproduces the workshop's two results — the CIM-sampled",
-   "poses, their RMSD to the crystal, the hydrogen bonds, and the 3D overlay — using",
-   "only NumPy + Matplotlib. The Kaiwu solve that produced the poses is shown at the",
-   "end; it runs in `qdock_kaiwu_workshop.ipynb` with the Kaiwu SDK (macOS/Windows).",
+   "Machine**. This Colab reproduces the workshop's results — the CIM-sampled poses,",
+   "their RMSD to the crystal, the hydrogen bonds, and the 3D overlay — using only",
+   "NumPy + Matplotlib. The Kaiwu solve that produced the poses is shown at the end; it",
+   "runs in `qdock_kaiwu_workshop.ipynb` with the Kaiwu SDK (macOS/Windows).",
    "",
-   "| demo | encoding | ligand | CIM best RMSD (t8 → t12) |",
-   "|---|---|---|---|",
-   "| 3f3d | GPM (vdW grid) | fragment | 4.19 → 4.15 → **1.25 Å** |",
-   "| 3d4z | FAM (features) | gluco-imidazole | 3.48 → **1.65** → 1.84 Å |")
+   "The CIM is high-variance on these dense QUBOs (the native pose appears in ~1 run of",
+   "5), so the workshop pools five runs per demo:",
+   "",
+   "| demo | encoding | ligand | best of 5 CIM runs | per-run spread |",
+   "|---|---|---|---|---|",
+   "| 3f3d | GPM (vdW grid) | fragment | **1.25 Å** | 1.25 – 4.95 Å |",
+   "| 3d4z | FAM (features) | gluco-imidazole | **1.84 Å** (5 H-bonds) | 1.84 – 4.57 Å |")
 
 code("!git clone -q https://github.com/Morwey/qdock-kaiwu-workshop.git",
      "%cd qdock-kaiwu-workshop",
@@ -39,13 +42,14 @@ code("!git clone -q https://github.com/Morwey/qdock-kaiwu-workshop.git",
      "from qdock_kaiwu import evaluate          # pure-NumPy metrics (no Kaiwu needed)",
      "D = np.load('data/demo_poses.npz')")
 
-md("## 1. The CIM poses vs the crystal",
+md("## 1. Five CIM runs per demo — the spread, and the pooled best",
    "",
-   "Each pose is the best of the CIM's reads at `truncated_precision=12`. RMSD is the",
-   "heavy-atom distance to the crystal ligand (the redocking reference).")
+   "Per-run best-RMSD swings widely (the CIM is sampling-limited); the pooled-best",
+   "pose is the one shipped here. RMSD is the heavy-atom distance to the crystal.")
 code("for tag in ('gpm', 'fam'):",
+     "    spread = [round(float(x), 2) for x in D[f'{tag}_per_run']]",
      "    rmsd = evaluate.pose_rmsds([D[f'{tag}_docked']], D[f'{tag}_crystal'], D[f'{tag}_elements'])[0]",
-     "    print(f'{tag.upper()}: CIM-docked RMSD = {rmsd:.2f} A')")
+     "    print(f'{tag.upper()}: per-run {spread}  ->  pooled best {rmsd:.2f} A')")
 
 md("## 2. 3D overlay — CIM pose (colored sticks) vs crystal (blue dashed)")
 code("EL = {'C':'#444','N':'#2c5fa8','O':'#cc3333','S':'#d4a000','P':'#d4a000'}",
