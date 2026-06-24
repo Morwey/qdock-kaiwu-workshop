@@ -62,12 +62,12 @@ RMSD (the paper's "sampling power", `mRMSD`).
 
 ## Installation
 
-Python **3.10** (required by the Kaiwu wheel).
+Python **3.10 or newer** (the Kaiwu wheel is pure-Python, `Requires-Python >=3.10`).
 
 ```bash
 python3.10 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pip install vendor/kaiwu-1.3.1-cp310-none-any.whl
+python -m pip install vendor/kaiwu-1.3.1-py3-none-any.whl
 python -m ipykernel install --user --name qdock-kaiwu --display-name "qdock-kaiwu"
 ```
 
@@ -134,7 +134,7 @@ scripts/dock.py                        CLI: dock 1N2J / 1LRH / 1JD0 (cached or -
 data/                                  the three crystal ligands (.mol2) + prepared receptors (.pdbqt)
 results/<pdb>_cim.npz                  prebuilt QUBO + decode metadata + the real CIM solutions
 tests/test_core.py                     license-free correctness checks
-vendor/kaiwu-1.3.1-cp310-none-any.whl  the Kaiwu SDK (Python 3.10)
+vendor/kaiwu-1.3.1-py3-none-any.whl    the Kaiwu SDK (pure-python, any Python 3.10+)
 ```
 
 ## References
