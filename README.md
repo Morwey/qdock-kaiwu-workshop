@@ -16,20 +16,23 @@ expansion**, so the spin count equals the number of QUBO variables, all under th
 |---|---|---|---|---|
 | **1N2J** | 232 | 2.0 | **0.41** | 0.8 |
 | **1LRH** | 304 | 2.0 | **0.74** | 1.4 |
-| **1JD0** | 244 | 2.5 | 1.99 | 0.6 |
+| **1JD0** | 244 | 2.5 | 1.77 | 0.6 |
 
 *`mRMSD` = the minimum heavy-atom RMSD to the crystal pose over pooled real-CIM runs
 (quota mode, 8-bit). 1N2J and 1LRH beat the paper; 1JD0 — a zinc metalloenzyme, the
-hardest of the three — reaches sub-2 Å (a docking success), but its sub-Å native pose
-needs more pooled runs than shipped here. The CIM is high-variance on these dense
-QUBOs, so the native pose surfaces only in a fraction of runs (≈3 of 10 for 1N2J);
-the recipe pools a few runs and keeps the best.*
+hardest of the three — reaches sub-2 Å (a docking success) but not its sub-Å native
+pose. The CIM is high-variance on these dense QUBOs, so the recipe pools several
+independent runs and keeps the best. **Reproducibility** across runs: 1N2J hits <2 Å
+in 10/10 runs (<1 Å in 4/10), 1LRH in 6/8, 1JD0 in 2/13. Rescoring every pooled pose
+with **AutoDock Vina** (`--score_only`) picks the near-native pose for 1N2J and 1LRH;
+for 1JD0 the best-scoring pose is a decoy, so both sampling and scoring are harder there.*
 
 ![CIM-docked poses (coloured sticks) vs crystal (blue)](assets/docking_demo.png)
 
-The notebook is the guided walkthrough — **every Kaiwu call shown and explained**.
-It ships the real CIM solutions (`results/`), so it reproduces the numbers above
-with no license; `QDOCK_FORCE_LIVE=1` resubmits to the hardware.
+The notebook is a guided walkthrough of the GPM QUBO and the Kaiwu solve. It ships the
+real CIM solutions (`results/`), so it reproduces the numbers above with no license;
+set `QDOCK_LIVE=1` with your own credentials to resubmit to the hardware. A
+[Colab version](notebooks/qdock_kaiwu_colab.ipynb) runs the same demo in the browser.
 
 ## Method
 
@@ -124,7 +127,8 @@ size_limit=300)` to solve on the CPU instead (that is `backends.solve_sa`).
 ## Repository layout
 
 ```
-notebooks/qdock_kaiwu_workshop.ipynb   guided session — every Kaiwu call, shown + explained
+notebooks/qdock_kaiwu_workshop.ipynb   guided session: the GPM QUBO + the Kaiwu solve
+notebooks/qdock_kaiwu_colab.ipynb      the same demo, one-click on Google Colab
 qdock_kaiwu/                           the engine: qubo · backends · gpm · geometry · evaluate · io · …
 scripts/dock.py                        CLI: dock 1N2J / 1LRH / 1JD0 (cached or --live)
 data/                                  the three crystal ligands (.mol2) + prepared receptors (.pdbqt)
