@@ -24,8 +24,8 @@ near-native pose for both, so sampling and scoring agree.*
 ![CIM-docked poses (coloured sticks) vs crystal (blue)](assets/docking_demo.png)
 
 The notebook builds each docking from the structures up: it loads the receptor and ligand,
-lays the pocket grid, reads the AutoGrid reward, assembles the GPM QUBO and converts it to an
-Ising matrix, then submits to the CIM (credentials from the environment) and decodes the
+defines a docking box, runs **AutoGrid** to score it, assembles the GPM QUBO and converts it
+to an Ising matrix, then submits to the CIM (credentials from the environment) and decodes the
 hardware's spins into poses; pooled real-CIM runs in `results/` drive the reproducibility,
 scoring, and 3-D sections. It ends in an **interactive 3-D viewer** (py3Dmol) — each docked pose in its
 binding pocket, drag to rotate and scroll to zoom. A
@@ -69,9 +69,10 @@ python -m pip install vendor/kaiwu-1.3.1-py3-none-any.whl
 python -m ipykernel install --user --name qdock-kaiwu --display-name "qdock-kaiwu"
 ```
 
-Rebuilding a QUBO from a receptor (optional) needs the `autogrid4` and `obabel`
-command-line tools from conda-forge; the prebuilt QUBOs in `results/` make this
-unnecessary to run the notebook or `scripts/dock.py`.
+The notebook builds the QUBO live from the receptor, so it needs the `autogrid4` and
+`obabel` command-line tools (conda-forge `autogrid` + `openbabel`); on Colab the first
+cell installs them automatically. The prebuilt bundles in `results/` still drive the
+pooled-results sections and `scripts/dock.py`.
 
 **License.** Free from [platform.qboson.com](https://platform.qboson.com). Export
 your own credentials — they are read from the environment and **never written into
@@ -106,9 +107,9 @@ https://colab.research.google.com/github/Morwey/qdock-kaiwu-workshop/blob/main/n
 
 This repository is **public**, so the link *is* the distribution — there is nothing else
 to send. The first cell clones the repo (code + `data/` + `results/` + the Kaiwu wheel)
-and installs `numpy`, `scipy`, `matplotlib`, `py3Dmol` and the Kaiwu SDK; replace the
-`USER_ID` and `USER_CODE` placeholders in that cell with your `KAIWU_USER_ID` and
-`KAIWU_SDK_CODE` to run on the CIM. Then every cell runs top-to-bottom and finishes at
+and installs `numpy`, `scipy`, `matplotlib`, `py3Dmol`, the Kaiwu SDK, and **AutoGrid +
+OpenBabel** (via micromamba, no kernel restart) so the QUBO is built live; uncomment the
+credential lines in that cell and set your `KAIWU_USER_ID` / `KAIWU_SDK_CODE` to run on the CIM. Then every cell runs top-to-bottom and finishes at
 the interactive 3-D viewer.
 
 **Everyone edits their own copy.** Opening the badge gives each person a *read-only* view

@@ -38,6 +38,15 @@ class GPMDock:
         tools.prepare_receptor_pdbqt(receptor_pdb, self.receptor_pdbqt)
         self.receptor_ad_types = np.unique(io.read_pdbqt(self.receptor_pdbqt)["ad_types"])
 
+    def use_receptor_pdbqt(self, pdbqt_path):
+        """Use an already-prepared receptor .pdbqt directly (skip the PDB->PDBQT
+        prep). AutoGrid reads the receptor from the work dir, so copy it in."""
+        import shutil
+        self.receptor_name = os.path.splitext(os.path.basename(pdbqt_path))[0]
+        self.receptor_pdbqt = os.path.join(self.workdir, "receptor.pdbqt")
+        shutil.copy(pdbqt_path, self.receptor_pdbqt)
+        self.receptor_ad_types = np.unique(io.read_pdbqt(self.receptor_pdbqt)["ad_types"])
+
     def make_ligand(self, ligand_paths):
         ligdir = os.path.join(self.workdir, "ligands")
         os.makedirs(ligdir, exist_ok=True)
