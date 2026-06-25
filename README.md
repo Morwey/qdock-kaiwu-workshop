@@ -31,8 +31,10 @@ for 1JD0 the best-scoring pose is a decoy, so both sampling and scoring are hard
 
 The notebook is a guided walkthrough of the GPM QUBO and the Kaiwu solve. It ships the
 real CIM solutions (`results/`), so it reproduces the numbers above with no license;
-set `QDOCK_LIVE=1` with your own credentials to resubmit to the hardware. A
-[Colab version](notebooks/qdock_kaiwu_colab.ipynb) runs the same demo in the browser.
+set `QDOCK_LIVE=1` with your own credentials to resubmit to the hardware. It ends in an
+**interactive 3-D viewer** (py3Dmol) — each docked pose in its binding pocket, drag to
+rotate and scroll to zoom. A [Colab version](notebooks/qdock_kaiwu_colab.ipynb) runs the
+whole thing in the browser (see [Run on Colab](#run-on-colab-and-share-it)).
 
 ## Method
 
@@ -95,6 +97,28 @@ jupyter lab                       # notebooks/qdock_kaiwu_workshop.ipynb (kernel
 python scripts/dock.py all        # decode the shipped CIM solutions -> comparison table
 python scripts/dock.py 1N2J --live  # resubmit 1N2J to the hardware (needs a license)
 ```
+
+## Run on Colab, and share it
+
+Click the **Open in Colab** badge at the top of
+[`notebooks/qdock_kaiwu_colab.ipynb`](notebooks/qdock_kaiwu_colab.ipynb), or hand out
+this link directly:
+
+```
+https://colab.research.google.com/github/Morwey/qdock-kaiwu-workshop/blob/main/notebooks/qdock_kaiwu_colab.ipynb
+```
+
+This repository is **public**, so the link *is* the distribution — there is nothing else
+to send. The first cell clones the repo (code + `data/` + `results/` + the Kaiwu wheel)
+and installs `numpy`, `scipy`, `matplotlib`, `py3Dmol` and the Kaiwu SDK, then every
+cell runs top-to-bottom and finishes at the interactive 3-D viewer.
+
+**Everyone edits their own copy.** Opening the badge gives each person a *read-only* view
+of this notebook — their edits live only in their own browser tab. To keep changes they
+choose **File ▸ Save a copy in Drive**, which forks an independent copy into *their* Drive;
+nobody can write back to the file in this repo, and no two people share a session. (The
+only setup where people would overwrite each other is sharing a single notebook from your
+own Drive with edit access — the GitHub link sidesteps that entirely.)
 
 ## The Kaiwu solve, end to end
 

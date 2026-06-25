@@ -6,5 +6,6 @@ numpy==2.2.6
 scipy
 prody
 matplotlib
+py3Dmol
 jupyter
 ipykernel
