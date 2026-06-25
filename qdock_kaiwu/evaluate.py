@@ -4,7 +4,7 @@ discretization error that bounds achievable accuracy.
 
 Redocking convention: the input ligand IS the crystal pose, so the prepared
 ligand's own coordinates are the reference. mRMSD = minimum heavy-atom RMSD over
-the sampled poses (the paper's "sampling power"); success = mRMSD < threshold
+the sampled poses (the "sampling power"); success = mRMSD < threshold
 (2.0 A standard, 1.5 A strict).
 """
 
