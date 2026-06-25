@@ -33,7 +33,14 @@ def init_license(user_id=None, sdk_code=None):
     """Initialise the Kaiwu license once per environment. Reads
     KAIWU_USER_ID / KAIWU_SDK_CODE from the environment if not passed."""
     import os
+    import tempfile
     import kaiwu as kw
+    os.environ["no_proxy"] = os.environ["NO_PROXY"] = "*"   # reach the CIM endpoint directly
+    for k in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "all_proxy", "ALL_PROXY"):
+        os.environ.pop(k, None)
+    cache = os.path.join(tempfile.gettempdir(), "kaiwu_cim")
+    os.makedirs(cache, exist_ok=True)
+    kw.common.CheckpointManager.save_dir = cache           # CIM task results are cached here
     user_id = user_id or os.environ.get("KAIWU_USER_ID")
     sdk_code = sdk_code or os.environ.get("KAIWU_SDK_CODE")
     if not user_id or not sdk_code:

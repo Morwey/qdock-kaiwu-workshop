@@ -4,7 +4,7 @@ Dock two protein–ligand complexes — PDB **1N2J** and **1LRH** — on a **rea
 Ising Machine (CIM)** through the **Kaiwu SDK** (开物, QBoson). Each docking is encoded
 with **Grid Point Matching (GPM)** as a **QUBO** and minimised on the photonic hardware.
 
-One fixed recipe for all three: **`quota` mode, 8-bit precision
+One fixed recipe for both: **`quota` mode, 8-bit precision
 (`precision=8`, `truncated_precision=8`)** — an 8-bit truncation with **no spin
 expansion**, so the spin count equals the number of QUBO variables, all under the
 ~1000-spin budget.
@@ -23,12 +23,13 @@ near-native pose for both, so sampling and scoring agree.*
 
 ![CIM-docked poses (coloured sticks) vs crystal (blue)](assets/docking_demo.png)
 
-The notebook is a guided walkthrough of the GPM QUBO and the Kaiwu solve. It ships the
-real CIM solutions (`results/`), so it reproduces the numbers above with no license;
-set `QDOCK_LIVE=1` with your own credentials to resubmit to the hardware. It ends in an
-**interactive 3-D viewer** (py3Dmol) — each docked pose in its binding pocket, drag to
-rotate and scroll to zoom. A [Colab version](notebooks/qdock_kaiwu_colab.ipynb) runs the
-whole thing in the browser (see [Run on Colab](#run-on-colab-and-share-it)).
+The notebook is a guided walkthrough of the GPM QUBO and the Kaiwu solve: it submits each
+QUBO to the CIM (credentials from the environment) and decodes the hardware's spins into
+poses; pooled real-CIM runs in `results/` drive the reproducibility, scoring, and 3-D
+sections. It ends in an **interactive 3-D viewer** (py3Dmol) — each docked pose in its
+binding pocket, drag to rotate and scroll to zoom. A
+[Colab version](notebooks/qdock_kaiwu_colab.ipynb) runs it in the browser (see
+[Run on Colab](#run-on-colab-and-share-it)).
 
 ## Method
 
@@ -88,7 +89,7 @@ to the hardware.
 
 ```bash
 jupyter lab                       # notebooks/qdock_kaiwu_workshop.ipynb (kernel "qdock-kaiwu")
-python scripts/dock.py all        # decode the shipped CIM solutions -> comparison table
+python scripts/dock.py all        # decode the cached real-CIM solutions -> summary table
 python scripts/dock.py 1N2J --live  # resubmit 1N2J to the hardware (needs a license)
 ```
 
@@ -103,9 +104,11 @@ https://colab.research.google.com/github/Morwey/qdock-kaiwu-workshop/blob/main/n
 ```
 
 This repository is **public**, so the link *is* the distribution — there is nothing else
-to send. The first cell clones the repo (code + `data/` + `results/` + the Kaiwu wheel)
-and installs `numpy`, `scipy`, `matplotlib`, `py3Dmol` and the Kaiwu SDK, then every
-cell runs top-to-bottom and finishes at the interactive 3-D viewer.
+to send. The first cell clones the repo (code + `data/` + `results/` + the Kaiwu wheel),
+installs `numpy`, `scipy`, `matplotlib`, `py3Dmol` and the Kaiwu SDK, and reads your
+license from Colab **Secrets** — add `KAIWU_USER_ID` and `KAIWU_SDK_CODE` in the 🔑 panel
+(they stay in the secrets store, never in the notebook). Then every cell runs
+top-to-bottom and finishes at the interactive 3-D viewer.
 
 **Everyone edits their own copy.** Opening the badge gives each person a *read-only* view
 of this notebook — their edits live only in their own browser tab. To keep changes they
@@ -122,7 +125,7 @@ from qdock_kaiwu import backends, evaluate
 from qdock_kaiwu.gpm import _matches_to_poses
 from types import SimpleNamespace
 
-kw.license.init(user_id=os.environ["KAIWU_USER_ID"], sdk_code=os.environ["KAIWU_SDK_CODE"])
+backends.init_license()                                        # license from the environment
 d = dict(np.load("results/1N2J_cim.npz", allow_pickle=True))   # prebuilt QUBO + decode metadata
 Q = d["Q"].astype(float)
 
