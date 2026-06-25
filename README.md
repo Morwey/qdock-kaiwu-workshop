@@ -23,10 +23,11 @@ near-native pose for both, so sampling and scoring agree.*
 
 ![CIM-docked poses (coloured sticks) vs crystal (blue)](assets/docking_demo.png)
 
-The notebook is a guided walkthrough of the GPM QUBO and the Kaiwu solve: it submits each
-QUBO to the CIM (credentials from the environment) and decodes the hardware's spins into
-poses; pooled real-CIM runs in `results/` drive the reproducibility, scoring, and 3-D
-sections. It ends in an **interactive 3-D viewer** (py3Dmol) — each docked pose in its
+The notebook builds each docking from the structures up: it loads the receptor and ligand,
+lays the pocket grid, reads the AutoGrid reward, assembles the GPM QUBO and converts it to an
+Ising matrix, then submits to the CIM (credentials from the environment) and decodes the
+hardware's spins into poses; pooled real-CIM runs in `results/` drive the reproducibility,
+scoring, and 3-D sections. It ends in an **interactive 3-D viewer** (py3Dmol) — each docked pose in its
 binding pocket, drag to rotate and scroll to zoom. A
 [Colab version](notebooks/qdock_kaiwu_colab.ipynb) runs it in the browser (see
 [Run on Colab](#run-on-colab-and-share-it)).
