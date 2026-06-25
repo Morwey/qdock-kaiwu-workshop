@@ -104,11 +104,11 @@ https://colab.research.google.com/github/Morwey/qdock-kaiwu-workshop/blob/main/n
 ```
 
 This repository is **public**, so the link *is* the distribution — there is nothing else
-to send. The first cell clones the repo (code + `data/` + `results/` + the Kaiwu wheel),
-installs `numpy`, `scipy`, `matplotlib`, `py3Dmol` and the Kaiwu SDK, and reads your
-license from Colab **Secrets** — add `KAIWU_USER_ID` and `KAIWU_SDK_CODE` in the 🔑 panel
-(they stay in the secrets store, never in the notebook). Then every cell runs
-top-to-bottom and finishes at the interactive 3-D viewer.
+to send. The first cell clones the repo (code + `data/` + `results/` + the Kaiwu wheel)
+and installs `numpy`, `scipy`, `matplotlib`, `py3Dmol` and the Kaiwu SDK; replace the
+`USER_ID` and `USER_CODE` placeholders in that cell with your `KAIWU_USER_ID` and
+`KAIWU_SDK_CODE` to run on the CIM. Then every cell runs top-to-bottom and finishes at
+the interactive 3-D viewer.
 
 **Everyone edits their own copy.** Opening the badge gives each person a *read-only* view
 of this notebook — their edits live only in their own browser tab. To keep changes they
@@ -152,7 +152,7 @@ notebooks/qdock_kaiwu_workshop.ipynb   guided session: the GPM QUBO + the Kaiwu 
 notebooks/qdock_kaiwu_colab.ipynb      the same demo, one-click on Google Colab
 qdock_kaiwu/                           the engine: qubo · backends · gpm · geometry · evaluate · io · …
 scripts/dock.py                        CLI: dock 1N2J / 1LRH (cached or --live)
-data/                                  the three crystal ligands (.mol2) + prepared receptors (.pdbqt)
+data/                                  the two crystal ligands (.mol2) + prepared receptors (.pdbqt)
 results/<pdb>_cim.npz                  prebuilt QUBO + decode metadata + the real CIM solutions
 tests/test_core.py                     license-free correctness checks
 vendor/kaiwu-1.3.1-py3-none-any.whl    the Kaiwu SDK (pure-python, any Python 3.10+)
